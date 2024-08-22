@@ -72,7 +72,7 @@ let
     "option 'extraLibraries' removed - use 'with*' options (e.g., 'withJava'), or overrideAttrs to inject extra build dependencies";
 
   packInstall = swiplPath: pack:
-    ''${swiplPath}/bin/swipl -g "pack_install(${pack}, [package_directory(\"${swiplPath}/lib/swipl/extra-pack\"), silent(true), interactive(false)])." -t "halt."
+    ''${swiplPath}/bin/swipl -g "pack_install(${pack}, [package_directory(\"${swiplPath}/lib/swipl/extra-pack\"), silent(true), interactive(false), git(false)])." -t "halt."
     '';
   withGui' = withGui && !stdenv.isDarwin;
   optionalDependencies = []
@@ -102,6 +102,11 @@ stdenv.mkDerivation {
     hash = "sha256-FgEn+Ht45++GFpfcdaJ5In5x+NyIOopSlSAs+t7sPDE=";
     fetchSubmodules = true;
   };
+
+  patches = [
+    # commit 068632d
+    ./skip_git_if_disabled.patch
+  ];
 
   # Add the packInstall path to the swipl pack search path
   postPatch = ''
