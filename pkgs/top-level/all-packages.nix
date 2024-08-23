@@ -16313,7 +16313,10 @@ with pkgs;
   swi-prolog = callPackage ../development/compilers/swi-prolog {
     inherit (darwin.apple_sdk.frameworks) Security;
   };
-  swi-prolog-gui = swi-prolog.override { withGui = true; };
+  swi-prolog-gui = swi-prolog.override {
+    withXpce = true;
+    withWin = true;
+  };
 
   tbb_2020_3 = callPackage ../development/libraries/tbb/2020_3.nix { };
   tbb_2021_5 = callPackage ../development/libraries/tbb/2021_5.nix { } ;

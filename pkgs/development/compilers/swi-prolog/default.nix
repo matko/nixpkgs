@@ -25,9 +25,13 @@
   withYaml ? true,
   libyaml,
 
-
-  withGui ? false,
+  withXpce ? false,
   libX11, libXpm, libXext, libXft, libXinerama, libjpeg, libXt, libSM, freetype, fontconfig,
+  withWin ? false,
+  qt6,
+
+  # deprecated due to ambiguity in meaning of 'gui' between X and qt
+  withGui ? null,
 
   # gcc/g++ as runtime dependency
   withNativeCompiler ? true
@@ -74,7 +78,8 @@ let
   packInstall = swiplPath: pack:
     ''${swiplPath}/bin/swipl -g "pack_install(${pack}, [package_directory(\"${swiplPath}/lib/swipl/extra-pack\"), silent(true), interactive(false), git(false)])." -t "halt."
     '';
-  withGui' = withGui && !stdenv.isDarwin;
+  withGui' = if withGui != null then lib.warn "withGui is deprecated. use withXpce and/or withWin" withGui else false;
+  withXpce' = (withGui' || withXpce) && !stdenv.isDarwin;
   optionalDependencies = []
                          ++ (lib.optional withDb db)
                          ++ (lib.optional withJava jdk)
@@ -82,9 +87,10 @@ let
                          ++ (lib.optional withPcre pcre2)
                          ++ (lib.optional withPython python3)
                          ++ (lib.optional withYaml libyaml)
-                         ++ (lib.optionals withGui' [ libXt libXext libXpm libXft libXinerama
+                         ++ (lib.optionals withXpce' [ libXt libXext libXpm libXft libXinerama
                                                       libjpeg libSM freetype fontconfig
                                                     ])
+                         ++ (lib.optionals withWin ([qt6.qtbase] ++ lib.optional stdenv.isLinux qt6.qtwayland))
                          ++ (lib.optional stdenv.isDarwin Security)
                          ++ extraLibraries';
 in
@@ -113,7 +119,10 @@ stdenv.mkDerivation {
     echo "user:file_search_path(pack, '$out/lib/swipl/extra-pack')." >> boot/init.pl
   '';
 
-  nativeBuildInputs = [ cmake ninja ];
+  nativeBuildInputs = [ cmake ninja ]
+                      ++ lib.optional withWin qt6.wrapQtAppsHook;
+  # wrapper is used in postInstall but not automatically
+  dontWrapQtApps = true;
 
   buildInputs = [
     libarchive
@@ -139,16 +148,24 @@ stdenv.mkDerivation {
     mkdir -p $out/lib/swipl/extra-pack
   '';
 
-  postInstall = builtins.concatStringsSep "\n"
-  ( builtins.map (packInstall "$out") extraPacks
-  );
+  postInstall = [
+    ''
+    if [ -L "$out/bin/swipl-win" ];then
+      wrapQtApp $(find $out/lib/swipl/bin -name swipl-win)
+    fi
+    ''
+    (builtins.concatStringsSep "\n"
+      ( builtins.map (packInstall "$out") extraPacks
+      )
+    )
+  ];
 
   meta = {
     homepage = "https://www.swi-prolog.org";
     description = "Prolog compiler and interpreter";
     license = lib.licenses.bsd2;
     mainProgram = "swipl";
-    platforms = lib.platforms.linux ++ lib.optionals (!withGui) lib.platforms.darwin;
+    platforms = lib.platforms.linux ++ lib.optionals (!withXpce') lib.platforms.darwin;
     maintainers = [ lib.maintainers.meditans lib.maintainers.matko ];
   };
 }
