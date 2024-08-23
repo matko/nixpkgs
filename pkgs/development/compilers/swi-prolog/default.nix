@@ -109,6 +109,9 @@ stdenv.mkDerivation {
     fetchSubmodules = true;
   };
 
+  # PGO is supported for ninja+gcc builds per CMAKE.md
+  cmakeBuildType = if stdenv.cc.isGNU then "PGO" else "Release";
+
   patches = [
     # commit 068632d
     ./skip_git_if_disabled.patch
